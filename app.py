@@ -1,44 +1,54 @@
-# app.py (Flask Frontend)
-
-from flask import Flask, request, render_template
+import streamlit as st
 import requests
 import os
 
-app = Flask(__name__)
+# Page configuration
+st.set_page_config(page_title="Placement Predictor", page_icon="🎓", layout="centered")
 
-# The URL of the FastAPI backend
-# Locally it's 8000, on Render we use an environment variable
+# Backend URL
 FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://127.0.0.1:8000")
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+st.title("🎓 Student Placement Prediction")
+st.markdown("Enter the student details below to predict placement status.")
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    # 1. Get data from the Flask Form
-    form_data = {
-        "IQ": int(request.form.get("IQ")),
-        "CGPA": float(request.form.get("CGPA")),
-        "10th_Marks": int(request.form.get("10th_Marks")),
-        "12th_Marks": int(request.form.get("12th_Marks")),
-        "Communication_Skills": float(request.form.get("Communication_Skills"))
+# Form for user input
+with st.form("prediction_form"):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        iq = st.number_input("IQ Score", min_value=0, max_value=200, value=100)
+        tenth_marks = st.number_input("10th Marks (%)", min_value=0, max_value=100, value=75)
+        comm_skills = st.slider("Communication Skills", 0.0, 10.0, 5.0, 0.1)
+
+    with col2:
+        cgpa = st.number_input("CGPA", min_value=0.0, max_value=10.0, value=7.5, step=0.01)
+        twelfth_marks = st.number_input("12th Marks (%)", min_value=0, max_value=100, value=75)
+
+    submit_button = st.form_submit_button(label="Predict Placement")
+
+if submit_button:
+    # Prepare data for API
+    payload = {
+        "IQ": iq,
+        "CGPA": cgpa,
+        "10th_Marks": tenth_marks,
+        "12th_Marks": twelfth_marks,
+        "Communication_Skills": comm_skills
     }
     
-    try:
-        # 2. Forward the data to the FastAPI Backend
-        response = requests.post(f"{FASTAPI_URL}/predict_api", json=form_data)
-        response.raise_for_status() # Check for errors
-        
-        # 3. Get the prediction result
-        result = response.json()
-        output = result.get("prediction", "Error")
-        
-    except Exception as e:
-        output = f"Connection Error: {str(e)}"
-
-    return render_template('index.html', prediction_text='Prediction: {}'.format(output))
-
-if __name__ == "__main__":
-    # Flask runs on 5000 by default
-    app.run(port=5000, debug=True)
+    with st.spinner("Talking to FastAPI Backend..."):
+        try:
+            response = requests.post(f"{FASTAPI_URL}/predict_api", json=payload)
+            response.raise_for_status()
+            result = response.json()
+            prediction = result.get("prediction")
+            
+            # Display result with nice styling
+            if prediction == "Placed":
+                st.success(f"### Prediction: **{prediction}** 🎉")
+                st.balloons()
+            else:
+                st.error(f"### Prediction: **{prediction}** ❌")
+                
+        except Exception as e:
+            st.warning(f"Could not connect to Backend: {e}")

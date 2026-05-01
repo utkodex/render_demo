@@ -1,5 +1,2 @@
-# To run FastAPI:
-web: uvicorn main:app --host 0.0.0.0 --port $PORT
-
-# To run Flask (comment out the FastAPI line above and uncomment the line below):
-# web: gunicorn app:app
+# Run Streamlit on Render
+web: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
