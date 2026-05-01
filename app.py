@@ -1,13 +1,22 @@
 import streamlit as st
-import requests
+import pickle
+import numpy as np
 import os
 
 # Page configuration
 st.set_page_config(page_title="Placement Predictor", page_icon="🎓", layout="centered")
 
-# Backend URL
-FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://127.0.0.1:8000")
+# --- MODEL LOADING ---
+# We load the model directly in Streamlit now!
+@st.cache_resource # This keeps the model in memory so it's fast
+def load_model():
+    model_path = 'model.pkl'
+    with open(model_path, 'rb') as file:
+        return pickle.load(file)
 
+model = load_model()
+
+# --- UI DESIGN ---
 st.title("🎓 Student Placement Prediction")
 st.markdown("Enter the student details below to predict placement status.")
 
@@ -27,28 +36,18 @@ with st.form("prediction_form"):
     submit_button = st.form_submit_button(label="Predict Placement")
 
 if submit_button:
-    # Prepare data for API
-    payload = {
-        "IQ": iq,
-        "CGPA": cgpa,
-        "10th_Marks": tenth_marks,
-        "12th_Marks": twelfth_marks,
-        "Communication_Skills": comm_skills
-    }
+    # --- PREDICTION LOGIC ---
+    # No more network requests! We do it right here.
+    features = [iq, cgpa, tenth_marks, twelfth_marks, comm_skills]
+    final_features = [np.array(features)]
     
-    with st.spinner("Talking to FastAPI Backend..."):
-        try:
-            response = requests.post(f"{FASTAPI_URL}/predict_api", json=payload)
-            response.raise_for_status()
-            result = response.json()
-            prediction = result.get("prediction")
-            
-            # Display result with nice styling
-            if prediction == "Placed":
-                st.success(f"### Prediction: **{prediction}** 🎉")
-                st.balloons()
-            else:
-                st.error(f"### Prediction: **{prediction}** ❌")
-                
-        except Exception as e:
-            st.warning(f"Could not connect to Backend: {e}")
+    with st.spinner("Predicting..."):
+        prediction = model.predict(final_features)
+        output = 'Placed' if prediction[0] == 1 else 'Not Placed'
+        
+        # Display result
+        if output == "Placed":
+            st.success(f"### Prediction: **{output}** 🎉")
+            st.balloons()
+        else:
+            st.error(f"### Prediction: **{output}** ❌")

@@ -1,4 +1,5 @@
 streamlit
+gunicorn
 fastapi
 uvicorn
 jinja2
